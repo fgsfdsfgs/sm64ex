@@ -4,6 +4,7 @@
 
 #include <strings.h>
 #include <stdlib.h>
+#define __NO_MINGW_LFS //Mysterious error in MinGW.org stdio.h
 #include <stdio.h>
 #include <string.h>
 
@@ -11,10 +12,11 @@ struct PCCLIOptions gCLIOpts;
 
 static void print_help(void) {
     printf("Super Mario 64 PC Port\n");
-    printf("%-20s\tSkips the Peach and Castle intro when starting a new game.\n", "--skip-intro");
-    printf("%-20s\tStarts the game in full screen mode.\n", "--fullscreen");
-    printf("%-20s\tStarts the game in windowed mode.\n", "--windowed");
+    printf("%-20s\tEnables the cheat menu.\n", "--cheats");
     printf("%-20s\tSaves the configuration file as CONFIGNAME.\n", "--configfile CONFIGNAME");
+    printf("%-20s\tStarts the game in full screen mode.\n", "--fullscreen");
+    printf("%-20s\tSkips the Peach and Castle intro when starting a new game.\n", "--skip-intro");
+    printf("%-20s\tStarts the game in windowed mode.\n", "--windowed");
 }
 
 void parse_cli_opts(int argc, char* argv[]) {
@@ -48,6 +50,9 @@ void parse_cli_opts(int argc, char* argv[]) {
                     gCLIOpts.ConfigFile[arglen] = '\0';
                 }
             }
+
+            // Skip the next string since it's the configuration file name.
+            i++;
         }
     }
 }

@@ -18,14 +18,19 @@ GRUCODE ?= f3d_old
 COMPARE ?= 1
 # If NON_MATCHING is 1, define the NON_MATCHING and AVOID_UB macros when building (recommended)
 NON_MATCHING ?= 1
-# Sane default until N64 build scripts rm'd
-TARGET_N64 = 0
 
 # Build and optimize for Raspberry Pi(s)
 TARGET_RPI ?= 0
 
+# Build for Emscripten/WebGL
+TARGET_WEB ?= 0
+
 # Makeflag to enable OSX fixes
 OSX_BUILD ?= 0
+
+# Specify the target you are building for, TARGET_BITS=0 means native
+TARGET_ARCH ?= native
+TARGET_BITS ?= 0
 
 # Disable better camera by default
 BETTERCAMERA ?= 0
@@ -35,38 +40,48 @@ NODRAWINGDISTANCE ?= 0
 TEXTURE_FIX ?= 0
 # Enable extended options menu by default
 EXT_OPTIONS_MENU ?= 1
+# Disable text-based save-files by default
+TEXTSAVES ?= 0
 
-# Build for Emscripten/WebGL
-TARGET_WEB ?= 0
-# Specify the target you are building for, 0 means native
-TARGET_ARCH ?= native
+# Various workarounds for weird toolchains
 
-ifeq ($(CROSS),i686-w64-mingw32.static-)
-  TARGET_ARCH = i386pe
-else ifeq ($(CROSS),x86_64-w64-mingw32.static-)
-  TARGET_ARCH = i386pe
-else
-  TARGET_ARCH = native
-endif
+NO_BZERO_BCOPY ?= 0
+NO_LDIV ?= 0
 
-TARGET_BITS ?= 0
+# Use OpenGL 1.3 renderer
 
-ifneq ($(TARGET_BITS),0)
-  BITS := -m$(TARGET_BITS)
-else
-  BITS :=
-endif
+LEGACY_GL ?= 0
 
 # Automatic settings for PC port(s)
 
 NON_MATCHING := 1
 GRUCODE := f3dex2e
-WINDOWS_BUILD := 0
+WINDOWS_BUILD ?= 0
 
 ifeq ($(TARGET_WEB),0)
 ifeq ($(OS),Windows_NT)
 WINDOWS_BUILD := 1
 endif
+endif
+
+# MXE overrides
+
+ifeq ($(WINDOWS_BUILD),1)
+  ifeq ($(CROSS),i686-w64-mingw32.static-)
+    TARGET_ARCH = i386pe
+    TARGET_BITS = 32
+    NO_BZERO_BCOPY := 1
+  else ifeq ($(CROSS),x86_64-w64-mingw32.static-)
+    TARGET_ARCH = i386pe
+    TARGET_BITS = 64
+    NO_BZERO_BCOPY := 1
+  endif
+endif
+
+ifneq ($(TARGET_BITS),0)
+  BITS := -m$(TARGET_BITS)
+else
+  BITS :=
 endif
 
 # Release (version) flag defs
@@ -106,6 +121,15 @@ else
 endif
 endif
 endif
+endif
+
+# Stuff for showing the git hash in the intro on nightly builds
+# From https://stackoverflow.com/questions/44038428/include-git-commit-hash-and-or-branch-name-in-c-c-source
+ifeq ($(shell git rev-parse --abbrev-ref HEAD),nightly)
+  $(info Hello Caldera!!! I'm here all week!)
+  GIT_HASH=`git rev-parse --short HEAD`
+  COMPILE_TIME=`date -u +'%Y-%m-%d %H:%M:%S UTC'`
+  VERSION_CFLAGS += -DNIGHTLY -DGIT_HASH="\"$(GIT_HASH)\"" -DCOMPILE_TIME="\"$(COMPILE_TIME)\""
 endif
 
 # Microcode
@@ -423,7 +447,7 @@ ENDIAN_BITWIDTH := $(BUILD_DIR)/endian-and-bitwidth
 
 # Huge deleted N64 section was here
 
-AS := as
+AS := $(CROSS)as
 
 ifeq ($(OSX_BUILD),1)
 AS := i686-w64-mingw32-as
@@ -436,6 +460,8 @@ else
   CC := emcc
 endif
 
+LD := $(CC)
+
 ifeq ($(WINDOWS_BUILD),1)
   ifeq ($(CROSS),i686-w64-mingw32.static-) # fixes compilation in MXE on Linux and WSL
     LD := $(CC)
@@ -444,24 +470,20 @@ ifeq ($(WINDOWS_BUILD),1)
   else
     LD := $(CXX)
   endif
-else
-  LD := $(CC)
 endif
 
 ifeq ($(WINDOWS_BUILD),1) # fixes compilation in MXE on Linux and WSL
   CPP := cpp -P
   OBJCOPY := objcopy
   OBJDUMP := $(CROSS)objdump
-else
-ifeq ($(OSX_BUILD),1)
- CPP := cpp-9 -P
- OBJDUMP := i686-w64-mingw32-objdump
- OBJCOPY := i686-w64-mingw32-objcopy
+else ifeq ($(OSX_BUILD),1)
+  CPP := cpp-9 -P
+  OBJDUMP := i686-w64-mingw32-objdump
+  OBJCOPY := i686-w64-mingw32-objcopy
 else # Linux & other builds
   CPP := $(CROSS)cpp -P
   OBJCOPY := $(CROSS)objcopy
   OBJDUMP := $(CROSS)objdump
-endif
 endif
 
 PYTHON := python3
@@ -490,6 +512,11 @@ ifeq ($(BETTERCAMERA),1)
   EXT_OPTIONS_MENU := 1
 endif
 
+ifeq ($(TEXTSAVES),1)
+  CC_CHECK += -DTEXTSAVES
+  CFLAGS += -DTEXTSAVES
+endif
+
 # Check for no drawing distance option
 ifeq ($(NODRAWINGDISTANCE),1)
   CC_CHECK += -DNODRAWINGDISTANCE
@@ -506,6 +533,24 @@ endif
 ifeq ($(EXT_OPTIONS_MENU),1)
   CC_CHECK += -DEXT_OPTIONS_MENU
   CFLAGS += -DEXT_OPTIONS_MENU
+endif
+
+# Check for no bzero/bcopy workaround option
+ifeq ($(NO_BZERO_BCOPY),1)
+  CC_CHECK += -DNO_BZERO_BCOPY
+  CFLAGS += -DNO_BZERO_BCOPY
+endif
+
+# Use internal ldiv()/lldiv()
+ifeq ($(NO_LDIV),1)
+  CC_CHECK += -DNO_LDIV
+  CFLAGS += -DNO_LDIV
+endif
+
+# Use OpenGL 1.3
+ifeq ($(LEGACY_GL),1)
+  CC_CHECK += -DLEGACY_GL
+  CFLAGS += -DLEGACY_GL
 endif
 
 ASFLAGS := -I include -I $(BUILD_DIR) $(VERSION_ASFLAGS)
@@ -594,6 +639,9 @@ $(BUILD_DIR)/include/text_strings.h: include/text_strings.h.in
 $(BUILD_DIR)/include/text_menu_strings.h: include/text_menu_strings.h.in
 	$(TEXTCONV) charmap_menu.txt $< $@
 
+$(BUILD_DIR)/include/text_options_strings.h: include/text_options_strings.h.in
+	$(TEXTCONV) charmap.txt $< $@
+
 ifeq ($(VERSION),eu)
 TEXT_DIRS := text/de text/us text/fr
 
@@ -633,6 +681,7 @@ ALL_DIRS := $(BUILD_DIR) $(addprefix $(BUILD_DIR)/,$(SRC_DIRS) $(ASM_DIRS) $(GOD
 DUMMY != mkdir -p $(ALL_DIRS)
 
 $(BUILD_DIR)/include/text_strings.h: $(BUILD_DIR)/include/text_menu_strings.h
+$(BUILD_DIR)/include/text_strings.h: $(BUILD_DIR)/include/text_options_strings.h
 
 ifeq ($(VERSION),eu)
 $(BUILD_DIR)/src/menu/file_select.o: $(BUILD_DIR)/include/text_strings.h $(BUILD_DIR)/bin/eu/translation_en.o $(BUILD_DIR)/bin/eu/translation_de.o $(BUILD_DIR)/bin/eu/translation_fr.o

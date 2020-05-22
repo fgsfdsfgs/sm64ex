@@ -72,12 +72,13 @@ unsigned int configCameraYSens   = 50;
 unsigned int configCameraAggr    = 0;
 unsigned int configCameraPan     = 0;
 unsigned int configCameraDegrade = 10; // 0 - 100%
-bool         configCameraInvertX = false;
+bool         configCameraInvertX = true;
 bool         configCameraInvertY = false;
 bool         configEnableCamera  = false;
 bool         configCameraMouse   = false;
 #endif
 unsigned int configSkipIntro     = 0;
+bool         configHUD           = true;
 
 static const struct ConfigOption options[] = {
     {.name = "fullscreen",           .type = CONFIG_TYPE_BOOL, .boolValue = &configWindow.fullscreen},
