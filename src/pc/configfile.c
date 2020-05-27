@@ -5,7 +5,6 @@
 #include <string.h>
 #include <assert.h>
 #include <ctype.h>
-#include <SDL2/SDL.h>
 
 #include "configfile.h"
 #include "gfx/gfx_screen_config.h"
@@ -36,8 +35,8 @@ struct ConfigOption {
 
 // Video/audio stuff
 ConfigWindow configWindow       = {
-    .x = SDL_WINDOWPOS_CENTERED,
-    .y = SDL_WINDOWPOS_CENTERED,
+    .x = 0x2FFF0000u,
+    .y = 0x2FFF0000u,
     .w = DESIRED_SCREEN_WIDTH,
     .h = DESIRED_SCREEN_HEIGHT,
     .vsync = 1,

@@ -1,0 +1,11 @@
+float4 main(
+  float4 vPosition : POSITION
+, float2 vTexCoord : TEXCOORD0
+, float4 vInput1 : TEXCOORD1
+, uniform sampler2D uTex0 : TEXUNIT0
+) {
+float4 texVal0 = tex2D(uTex0, vTexCoord);
+float4 texel = float4(texVal0.rgb * vInput1.rgb, vInput1.a * texVal0.a);
+return texel;
+}
+

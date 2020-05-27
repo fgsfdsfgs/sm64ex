@@ -1,10 +1,15 @@
 #include "lib/src/libultra_internal.h"
 #include "lib/src/osContInternal.h"
 
-#include "controller_recorded_tas.h"
-#include "controller_keyboard.h"
+#include "controller_api.h"
 
-#include "controller_sdl.h"
+#ifdef TARGET_VITA
+# include "controller_vita.h"
+#else
+# include "controller_recorded_tas.h"
+# include "controller_keyboard.h"
+# include "controller_sdl.h"
+#endif
 
 // Analog camera movement by Pathétique (github.com/vrmiguel), y0shin and Mors
 // Contribute or communicate bugs at github.com/vrmiguel/sm64-analog-camera
@@ -15,9 +20,13 @@ int c_rightx;
 int c_righty;
 
 static struct ControllerAPI *controller_implementations[] = {
+#ifdef TARGET_VITA
+    &controller_vita,
+#else
     &controller_recorded_tas,
     &controller_sdl,
     &controller_keyboard,
+#endif
 };
 
 s32 osContInit(OSMesgQueue *mq, u8 *controllerBits, OSContStatus *status) {

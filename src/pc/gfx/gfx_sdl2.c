@@ -1,3 +1,5 @@
+#ifdef USE_SDL
+
 #ifdef __MINGW32__
 #define FOR_WINDOWS 1
 #else
@@ -311,3 +313,5 @@ struct GfxWindowManagerAPI gfx_sdl = {
     gfx_sdl_get_time,
     gfx_sdl_shutdown
 };
+
+#endif // USE_SDL

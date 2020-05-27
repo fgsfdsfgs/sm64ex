@@ -12,11 +12,19 @@
 
 #include "gfx/gfx_pc.h"
 #include "gfx/gfx_opengl.h"
-#include "gfx/gfx_sdl.h"
+#ifdef TARGET_VITA
+# include "gfx/gfx_vita.h"
+#else
+# include "gfx/gfx_sdl.h"
+#endif
 
 #include "audio/audio_api.h"
-#include "audio/audio_sdl.h"
 #include "audio/audio_null.h"
+#ifdef TARGET_VITA
+# include "audio/audio_vita.h"
+#else
+# include "audio/audio_sdl.h"
+#endif
 
 #include "pc_main.h"
 #include "cliopts.h"
@@ -92,7 +100,7 @@ void audio_shutdown(void) {
 }
 
 void game_deinit(void) {
-    configfile_save(gCLIOpts.ConfigFile);;
+    configfile_save(CONFIGFILE_DEFAULT);
     controller_shutdown();
     audio_shutdown();
     gfx_shutdown();
@@ -145,14 +153,23 @@ void main_func(void) {
     main_pool_init(pool, pool + sizeof(pool) / sizeof(pool[0]));
     gEffectsMemoryPool = mem_pool_init(0x4000, MEMORY_POOL_LEFT);
 
-    configfile_load(gCLIOpts.ConfigFile);
+    configfile_load(CONFIGFILE_DEFAULT);
 
+#ifdef TARGET_VITA
+    wm_api = &gfx_vita;
+#else
     wm_api = &gfx_sdl;
+#endif
     rendering_api = &gfx_opengl_api;
     gfx_init(wm_api, rendering_api);
 
+#ifdef TARGET_VITA
+    if (audio_api == NULL && audio_vita.init()) 
+        audio_api = &audio_vita;
+#else
     if (audio_api == NULL && audio_sdl.init()) 
         audio_api = &audio_sdl;
+#endif
 
     if (audio_api == NULL) {
         audio_api = &audio_null;

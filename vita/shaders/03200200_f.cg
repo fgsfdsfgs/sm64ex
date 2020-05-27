@@ -1,0 +1,10 @@
+float4 main(
+  float4 vPosition : POSITION
+, float4 vFog : COLOR0
+, float4 vInput1 : TEXCOORD0
+) {
+float4 texel = vInput1;
+texel = float4(lerp(texel.rgb, vFog.rgb, vFog.a), texel.a);
+return texel;
+}
+

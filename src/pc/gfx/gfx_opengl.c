@@ -1,4 +1,4 @@
-#ifndef LEGACY_GL
+#if !defined(LEGACY_GL) && !defined(TARGET_VITA)
 
 #include <stdint.h>
 #include <stdbool.h>

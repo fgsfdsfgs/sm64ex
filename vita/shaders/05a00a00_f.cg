@@ -1,0 +1,11 @@
+float4 main(
+  float4 vPosition : POSITION
+, float2 vTexCoord : TEXCOORD0
+, uniform sampler2D uTex0 : TEXUNIT0
+) {
+float4 texVal0 = tex2D(uTex0, vTexCoord);
+float4 texel = texVal0;
+if (texel.a > 0.3) texel.a = 1.0; else discard;
+return texel;
+}
+

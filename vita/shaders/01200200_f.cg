@@ -1,0 +1,8 @@
+float4 main(
+  float4 vPosition : POSITION
+, float4 vInput1 : TEXCOORD0
+) {
+float4 texel = vInput1;
+return texel;
+}
+

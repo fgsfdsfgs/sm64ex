@@ -25,6 +25,9 @@ TARGET_RPI ?= 0
 # Build for Emscripten/WebGL
 TARGET_WEB ?= 0
 
+# Build for PSVita
+TARGET_VITA ?= 0
+
 # Makeflag to enable OSX fixes
 OSX_BUILD ?= 0
 
@@ -58,9 +61,11 @@ NON_MATCHING := 1
 GRUCODE := f3dex2e
 WINDOWS_BUILD ?= 0
 
+ifeq ($(TARGET_VITA),0)
 ifeq ($(TARGET_WEB),0)
 ifeq ($(OS),Windows_NT)
 WINDOWS_BUILD := 1
+endif
 endif
 endif
 
@@ -221,6 +226,8 @@ BUILD_DIR_BASE := build
 
 ifeq ($(TARGET_WEB),1)
   BUILD_DIR := $(BUILD_DIR_BASE)/$(VERSION)_web
+else ifeq ($(TARGET_VITA),1)
+  BUILD_DIR := $(BUILD_DIR_BASE)/$(VERSION)_vita
 else
   BUILD_DIR := $(BUILD_DIR_BASE)/$(VERSION)_pc
 endif
@@ -447,6 +454,13 @@ ENDIAN_BITWIDTH := $(BUILD_DIR)/endian-and-bitwidth
 
 # Huge deleted N64 section was here
 
+ifeq ($(TARGET_VITA),1)
+  CROSS := arm-vita-eabi-
+  OPT_FLAGS += -mtune=cortex-a9 -mfpu=neon
+  VITA_APPNAME := Super Mario 64 PC
+  VITA_TITLEID := SM6400001
+endif
+
 AS := $(CROSS)as
 
 ifeq ($(OSX_BUILD),1)
@@ -490,17 +504,21 @@ PYTHON := python3
 SDLCONFIG := $(CROSS)sdl2-config
 
 ifeq ($(WINDOWS_BUILD),1)
-CC_CHECK := $(CC) -fsyntax-only -fsigned-char $(INCLUDE_CFLAGS) -Wall -Wextra -Wno-format-security $(VERSION_CFLAGS) $(GRUCODE_CFLAGS) `$(SDLCONFIG) --cflags`
-CFLAGS := $(OPT_FLAGS) $(INCLUDE_CFLAGS) $(VERSION_CFLAGS) $(GRUCODE_CFLAGS) -fno-strict-aliasing -fwrapv `$(SDLCONFIG) --cflags`
+CC_CHECK := $(CC) -fsyntax-only -fsigned-char $(INCLUDE_CFLAGS) -Wall -Wextra -Wno-format-security $(VERSION_CFLAGS) $(GRUCODE_CFLAGS) `$(SDLCONFIG) --cflags` -DUSE_SDL=2
+CFLAGS := $(OPT_FLAGS) $(INCLUDE_CFLAGS) $(VERSION_CFLAGS) $(GRUCODE_CFLAGS) -fno-strict-aliasing -fwrapv `$(SDLCONFIG) --cflags` -DUSE_SDL=2
 
 else ifeq ($(TARGET_WEB),1)
 CC_CHECK := $(CC) -fsyntax-only -fsigned-char $(INCLUDE_CFLAGS) -Wall -Wextra -Wno-format-security $(VERSION_CFLAGS) $(GRUCODE_CFLAGS) -s USE_SDL=2
 CFLAGS := $(OPT_FLAGS) $(INCLUDE_CFLAGS) $(VERSION_CFLAGS) $(GRUCODE_CFLAGS) -fno-strict-aliasing -fwrapv -s USE_SDL=2
 
+else ifeq ($(TARGET_VITA),1)
+CC_CHECK := $(CC) -fsyntax-only -fsigned-char $(INCLUDE_CFLAGS) -Wall -Wno-format-security $(VERSION_CFLAGS) $(GRUCODE_CFLAGS) -fsigned-char -DTARGET_VITA -D__vita__
+CFLAGS := $(OPT_FLAGS) $(INCLUDE_CFLAGS) $(VERSION_CFLAGS) $(GRUCODE_CFLAGS) -fno-strict-aliasing -fwrapv -Wfatal-errors -fsigned-char -DTARGET_VITA -D__vita__
+
 # Linux / Other builds below
 else
-CC_CHECK := $(CC) -fsyntax-only -fsigned-char $(INCLUDE_CFLAGS) -Wall -Wextra -Wno-format-security $(VERSION_CFLAGS) $(GRUCODE_CFLAGS) `$(SDLCONFIG) --cflags`
-CFLAGS := $(OPT_FLAGS) $(INCLUDE_CFLAGS) $(VERSION_CFLAGS) $(GRUCODE_CFLAGS) -fno-strict-aliasing -fwrapv `$(SDLCONFIG) --cflags`
+CC_CHECK := $(CC) -fsyntax-only -fsigned-char $(INCLUDE_CFLAGS) -Wall -Wextra -Wno-format-security $(VERSION_CFLAGS) $(GRUCODE_CFLAGS) `$(SDLCONFIG) --cflags` -DUSE_SDL=2
+CFLAGS := $(OPT_FLAGS) $(INCLUDE_CFLAGS) $(VERSION_CFLAGS) $(GRUCODE_CFLAGS) -fno-strict-aliasing -fwrapv `$(SDLCONFIG) --cflags` -DUSE_SDL=2
 endif
 
 # Check for enhancement options
@@ -557,23 +575,32 @@ ASFLAGS := -I include -I $(BUILD_DIR) $(VERSION_ASFLAGS)
 
 ifeq ($(TARGET_WEB),1)
 LDFLAGS := -lm -lGL -lSDL2 -no-pie -s TOTAL_MEMORY=20MB -g4 --source-map-base http://localhost:8080/ -s "EXTRA_EXPORTED_RUNTIME_METHODS=['callMain']"
+
 else ifeq ($(WINDOWS_BUILD),1)
-  LDFLAGS := $(BITS) -march=$(TARGET_ARCH) -Llib -lpthread -lglew32 `$(SDLCONFIG) --static-libs` -lm -lglu32 -lsetupapi -ldinput8 -luser32 -lgdi32 -limm32 -lole32 -loleaut32 -lshell32 -lwinmm -lversion -luuid -lopengl32 -static
-  ifeq ($(CROSS),)
-    LDFLAGS += -no-pie
-  endif
-  ifeq ($(WINDOWS_CONSOLE),1)
-    LDFLAGS += -mconsole
-  endif
+LDFLAGS := $(BITS) -march=$(TARGET_ARCH) -Llib -lpthread -lglew32 `$(SDLCONFIG) --static-libs` -lm -lglu32 -lsetupapi -ldinput8 -luser32 -lgdi32 -limm32 -lole32 -loleaut32 -lshell32 -lwinmm -lversion -luuid -lopengl32 -static
+ifeq ($(CROSS),)
+  LDFLAGS += -no-pie
+endif
+ifeq ($(WINDOWS_CONSOLE),1)
+  LDFLAGS += -mconsole
+endif
+
 else ifeq ($(TARGET_RPI),1)
-# Linux / Other builds below
 LDFLAGS := $(OPT_FLAGS) -lm -lGLESv2 `$(SDLCONFIG) --libs` -no-pie
-else
-ifeq ($(OSX_BUILD),1)
+
+else ifeq ($(TARGET_VITA),1)
+LDFLAGS := -Wl,-q \
+  -lvitaGL \
+  -lSceLibKernel_stub -lScePvf_stub -lmathneon -lSceAppMgr_stub \
+  -lSceSysmodule_stub -lSceCtrl_stub -lSceTouch_stub -lm -lSceNet_stub \
+  -lSceNetCtl_stub -lSceAppUtil_stub -lc -lScePower_stub -lSceCommonDialog_stub \
+  -lSceAudio_stub -lSceGxm_stub -lSceDisplay_stub -lSceNet_stub -lSceNetCtl_stub
+
+else ifeq ($(OSX_BUILD),1)
 LDFLAGS := -lm -framework OpenGL `$(SDLCONFIG) --libs` -no-pie -lpthread `pkg-config --libs libusb-1.0 glfw3 glew`
+
 else
 LDFLAGS := $(BITS) -march=$(TARGET_ARCH) -lm -lGL `$(SDLCONFIG) --libs` -no-pie -lpthread
-endif
 endif # End of LDFLAGS
 
 # Prevent a crash with -sopt
@@ -853,12 +880,30 @@ $(BUILD_DIR)/%.o: $(BUILD_DIR)/%.c
 $(BUILD_DIR)/%.o: %.s
 	$(AS) $(ASFLAGS) -MD $(BUILD_DIR)/$*.d -o $@ $<
 
+ifeq ($(TARGET_VITA),1)
 
+shaders:
+	@mkdir -p $(BUILD_DIR)/shaders
+	$(MAKE) -C vita/shaders OUTDIR="../../$(BUILD_DIR)/shaders"
+
+vpk: $(EXE) shaders
+	@cp -r -f vita/sce_sys $(BUILD_DIR)/sce_sys
+	@cp $< $<.unstripped.elf
+	@$(CROSS)strip -g $<
+	@vita-elf-create $< $(EXE).velf
+	@vita-make-fself -s $(EXE).velf $(BUILD_DIR)/eboot.bin
+	@vita-mksfoex -s TITLE_ID="$(VITA_TITLEID)" "$(VITA_APPNAME)" $(BUILD_DIR)/sce_sys/param.sfo
+	@vita-pack-vpk -s $(BUILD_DIR)/sce_sys/param.sfo -b $(BUILD_DIR)/eboot.bin \
+		--add $(BUILD_DIR)/sce_sys=sce_sys \
+		--add $(BUILD_DIR)/shaders=shaders \
+		$(EXE).vpk
+
+endif
 
 $(EXE): $(O_FILES) $(MIO0_FILES:.mio0=.o) $(SOUND_OBJ_FILES) $(ULTRA_O_FILES) $(GODDARD_O_FILES)
 	$(LD) -L $(BUILD_DIR) -o $@ $(O_FILES) $(SOUND_OBJ_FILES) $(ULTRA_O_FILES) $(GODDARD_O_FILES) $(LDFLAGS)
 
-.PHONY: all clean distclean default diff test load libultra
+.PHONY: all clean distclean default diff test load libultra shaders vpk
 .PRECIOUS: $(BUILD_DIR)/bin/%.elf $(SOUND_BIN_DIR)/%.ctl $(SOUND_BIN_DIR)/%.tbl $(SOUND_SAMPLE_TABLES) $(SOUND_BIN_DIR)/%.s $(BUILD_DIR)/%
 .DELETE_ON_ERROR:
 

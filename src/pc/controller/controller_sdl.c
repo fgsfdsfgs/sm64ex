@@ -1,3 +1,5 @@
+#ifdef USE_SDL
+
 #include <stdio.h>
 #include <stdint.h>
 #include <stdbool.h>
@@ -225,3 +227,5 @@ struct ControllerAPI controller_sdl = {
     controller_sdl_bind,
     controller_sdl_shutdown
 };
+
+#endif // USE_SDL

@@ -1,0 +1,9 @@
+float4 main(
+  float4 vPosition : POSITION
+, float4 vInput1 : TEXCOORD0
+) {
+float4 texel = vInput1;
+if (texel.a > 0.3) texel.a = 1.0; else discard;
+return texel;
+}
+

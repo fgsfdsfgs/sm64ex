@@ -1,0 +1,13 @@
+void main(
+  float4 aPosition
+, float2 aTexCoord
+, float3 aInput1
+, float4 out vPosition : POSITION
+, float2 out vTexCoord : TEXCOORD0
+, float3 out vInput1 : TEXCOORD1
+) {
+vTexCoord = aTexCoord;
+vInput1 = aInput1;
+vPosition = aPosition;
+}
+
