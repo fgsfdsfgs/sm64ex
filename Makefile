@@ -18,8 +18,6 @@ GRUCODE ?= f3d_old
 COMPARE ?= 1
 # If NON_MATCHING is 1, define the NON_MATCHING and AVOID_UB macros when building (recommended)
 NON_MATCHING ?= 1
-# Sane default until N64 build scripts rm'd
-TARGET_N64 = 0
 
 # Build and optimize for Raspberry Pi(s)
 TARGET_RPI ?= 0
@@ -28,8 +26,15 @@ TARGET_SWITCH ?= 1
 # Compiler to use (ido or gcc)
 COMPILER ?= ido
 
+# Build for Emscripten/WebGL
+TARGET_WEB ?= 0
+
 # Makeflag to enable OSX fixes
 OSX_BUILD ?= 0
+
+# Specify the target you are building for, TARGET_BITS=0 means native
+TARGET_ARCH ?= native
+TARGET_BITS ?= 0
 
 # Disable better camera by default
 BETTERCAMERA ?= 0
@@ -41,33 +46,25 @@ NODRAWINGDISTANCE ?= 0
 TEXTURE_FIX ?= 0
 # Enable extended options menu by default
 EXT_OPTIONS_MENU ?= 1
+# Disable text-based save-files by default
+TEXTSAVES ?= 0
+# Load textures from external PNG files
+EXTERNAL_TEXTURES ?= 0
 
-# Build for Emscripten/WebGL
-TARGET_WEB ?= 0
-# Specify the target you are building for, 0 means native
-TARGET_ARCH ?= native
+# Various workarounds for weird toolchains
 
-ifeq ($(CROSS),i686-w64-mingw32.static-)
-  TARGET_ARCH = i386pe
-else ifeq ($(CROSS),x86_64-w64-mingw32.static-)
-  TARGET_ARCH = i386pe
-else
-  TARGET_ARCH = native
-endif
+NO_BZERO_BCOPY ?= 0
+NO_LDIV ?= 0
 
-TARGET_BITS ?= 0
+# Use OpenGL 1.3 renderer
 
-ifneq ($(TARGET_BITS),0)
-  BITS := -m$(TARGET_BITS)
-else
-  BITS :=
-endif
+LEGACY_GL ?= 0
 
 # Automatic settings for PC port(s)
 
 NON_MATCHING := 1
 GRUCODE := f3dex2e
-WINDOWS_BUILD := 0
+WINDOWS_BUILD ?= 0
 
 ifeq ($(TARGET_WEB),0)
 ifeq ($(TARGET_SWITCH),0)
@@ -75,6 +72,26 @@ ifeq ($(OS),Windows_NT)
 WINDOWS_BUILD := 1
 endif
 endif
+endif
+
+# MXE overrides
+
+ifeq ($(WINDOWS_BUILD),1)
+  ifeq ($(CROSS),i686-w64-mingw32.static-)
+    TARGET_ARCH = i386pe
+    TARGET_BITS = 32
+    NO_BZERO_BCOPY := 1
+  else ifeq ($(CROSS),x86_64-w64-mingw32.static-)
+    TARGET_ARCH = i386pe
+    TARGET_BITS = 64
+    NO_BZERO_BCOPY := 1
+  endif
+endif
+
+ifneq ($(TARGET_BITS),0)
+  BITS := -m$(TARGET_BITS)
+else
+  BITS :=
 endif
 
 # Release (version) flag defs
@@ -114,6 +131,14 @@ else
 endif
 endif
 endif
+endif
+
+# Stuff for showing the git hash in the intro on nightly builds
+# From https://stackoverflow.com/questions/44038428/include-git-commit-hash-and-or-branch-name-in-c-c-source
+ifeq ($(shell git rev-parse --abbrev-ref HEAD),nightly)
+  GIT_HASH=`git rev-parse --short HEAD`
+  COMPILE_TIME=`date -u +'%Y-%m-%d %H:%M:%S UTC'`
+  VERSION_CFLAGS += -DNIGHTLY -DGIT_HASH="\"$(GIT_HASH)\"" -DCOMPILE_TIME="\"$(COMPILE_TIME)\""
 endif
 
 # Microcode
@@ -461,6 +486,8 @@ else
   CC := emcc
 endif
 
+LD := $(CC)
+
 ifeq ($(WINDOWS_BUILD),1)
   ifeq ($(CROSS),i686-w64-mingw32.static-) # fixes compilation in MXE on Linux and WSL
     LD := $(CC)
@@ -469,16 +496,13 @@ ifeq ($(WINDOWS_BUILD),1)
   else
     LD := $(CXX)
   endif
-else
-  LD := $(CC)
 endif
 
 ifeq ($(WINDOWS_BUILD),1) # fixes compilation in MXE on Linux and WSL
   CPP := cpp -P
   OBJCOPY := objcopy
   OBJDUMP := $(CROSS)objdump
-else
-ifeq ($(OSX_BUILD),1)
+else ifeq ($(OSX_BUILD),1)
   CPP := cpp-9 -P
   OBJDUMP := i686-w64-mingw32-objdump
   OBJCOPY := i686-w64-mingw32-objcopy
@@ -487,15 +511,14 @@ else # Linux & other builds
   OBJCOPY := $(CROSS)objcopy
   OBJDUMP := $(CROSS)objdump
 endif
-endif
 
 STRIP := $(CROSS)strip
 PYTHON := python3
 SDLCONFIG := $(CROSS)sdl2-config
 
 ifeq ($(WINDOWS_BUILD),1)
-CC_CHECK := $(CC) -fsyntax-only -fsigned-char $(INCLUDE_CFLAGS) -Wall -Wextra -Wno-format-security $(VERSION_CFLAGS) $(GRUCODE_CFLAGS) `$(SDLCONFIG) --cflags`
-CFLAGS := $(OPT_FLAGS) $(INCLUDE_CFLAGS) $(VERSION_CFLAGS) $(GRUCODE_CFLAGS) -fno-strict-aliasing -fwrapv `$(SDLCONFIG) --cflags`
+CC_CHECK := $(CC) -fsyntax-only -fsigned-char $(INCLUDE_CFLAGS) -Wall -Wextra -Wno-format-security $(VERSION_CFLAGS) $(GRUCODE_CFLAGS) `$(SDLCONFIG) --cflags` -DUSE_SDL=2
+CFLAGS := $(OPT_FLAGS) $(INCLUDE_CFLAGS) $(VERSION_CFLAGS) $(GRUCODE_CFLAGS) -fno-strict-aliasing -fwrapv `$(SDLCONFIG) --cflags` -DUSE_SDL=2
 
 else ifeq ($(TARGET_WEB),1)
 CC_CHECK := $(CC) -fsyntax-only -fsigned-char $(INCLUDE_CFLAGS) -Wall -Wextra -Wno-format-security $(VERSION_CFLAGS) $(GRUCODE_CFLAGS) -s USE_SDL=2
@@ -507,8 +530,8 @@ CFLAGS := $(NXARCH) $(OPT_FLAGS) $(INCLUDE_CFLAGS) $(VERSION_CFLAGS) $(GRUCODE_C
 
 # Linux / Other builds below
 else
-CC_CHECK := $(CC) -fsyntax-only -fsigned-char $(INCLUDE_CFLAGS) -Wall -Wextra -Wno-format-security $(VERSION_CFLAGS) $(GRUCODE_CFLAGS) `$(SDLCONFIG) --cflags`
-CFLAGS := $(OPT_FLAGS) $(INCLUDE_CFLAGS) $(VERSION_CFLAGS) $(GRUCODE_CFLAGS) -fno-strict-aliasing -fwrapv `$(SDLCONFIG) --cflags`
+CC_CHECK := $(CC) -fsyntax-only -fsigned-char $(INCLUDE_CFLAGS) -Wall -Wextra -Wno-format-security $(VERSION_CFLAGS) $(GRUCODE_CFLAGS) `$(SDLCONFIG) --cflags` -DUSE_SDL=2
+CFLAGS := $(OPT_FLAGS) $(INCLUDE_CFLAGS) $(VERSION_CFLAGS) $(GRUCODE_CFLAGS) -fno-strict-aliasing -fwrapv `$(SDLCONFIG) --cflags` -DUSE_SDL=2
 endif
 
 # Check for enhancement options
@@ -518,6 +541,11 @@ ifeq ($(BETTERCAMERA),1)
   CC_CHECK += -DBETTERCAMERA
   CFLAGS += -DBETTERCAMERA
   EXT_OPTIONS_MENU := 1
+endif
+
+ifeq ($(TEXTSAVES),1)
+  CC_CHECK += -DTEXTSAVES
+  CFLAGS += -DTEXTSAVES
 endif
 
 # Check for no drawing distance option
@@ -536,6 +564,32 @@ endif
 ifeq ($(EXT_OPTIONS_MENU),1)
   CC_CHECK += -DEXT_OPTIONS_MENU
   CFLAGS += -DEXT_OPTIONS_MENU
+endif
+
+# Check for no bzero/bcopy workaround option
+ifeq ($(NO_BZERO_BCOPY),1)
+  CC_CHECK += -DNO_BZERO_BCOPY
+  CFLAGS += -DNO_BZERO_BCOPY
+endif
+
+# Use internal ldiv()/lldiv()
+ifeq ($(NO_LDIV),1)
+  CC_CHECK += -DNO_LDIV
+  CFLAGS += -DNO_LDIV
+endif
+
+# Use OpenGL 1.3
+ifeq ($(LEGACY_GL),1)
+  CC_CHECK += -DLEGACY_GL
+  CFLAGS += -DLEGACY_GL
+endif
+
+# Load external textures
+ifeq ($(EXTERNAL_TEXTURES),1)
+  CC_CHECK += -DEXTERNAL_TEXTURES
+  CFLAGS += -DEXTERNAL_TEXTURES
+  # tell skyconv to write names instead of actual texture data and save the split tiles so we can use them later
+  SKYCONV_ARGS := --store-names --write-tiles "$(BUILD_DIR)/textures/skybox_tiles"
 endif
 
 ASFLAGS := -I include -I $(BUILD_DIR) $(VERSION_ASFLAGS)
@@ -588,6 +642,7 @@ EMU_FLAGS = --noosd
 LOADER = loader64
 LOADER_FLAGS = -vwf
 SHA1SUM = sha1sum
+ZEROTERM = $(PYTHON) $(TOOLS_DIR)/zeroterm.py
 
 ###################### Dependency Check #####################
 
@@ -598,6 +653,19 @@ SHA1SUM = sha1sum
 all: $(EXE)
 ifeq ($(TARGET_SWITCH),1)
 all: $(EXE).nro
+endif
+
+ifeq ($(EXTERNAL_TEXTURES),1)
+# depend on resources as well
+all: res
+
+# prepares the resource folder for external data
+res: $(EXE)
+	@mkdir -p $(BUILD_DIR)/res
+	@cp -r -f textures/ $(BUILD_DIR)/res/
+	@cp -r -f $(BUILD_DIR)/textures/skybox_tiles/ $(BUILD_DIR)/res/textures/
+	@find actors -name \*.png -exec cp --parents {} $(BUILD_DIR)/res/ \;
+	@find levels -name \*.png -exec cp --parents {} $(BUILD_DIR)/res/ \;
 endif
 
 clean:
@@ -631,6 +699,9 @@ $(BUILD_DIR)/include/text_strings.h: include/text_strings.h.in
 
 $(BUILD_DIR)/include/text_menu_strings.h: include/text_menu_strings.h.in
 	$(TEXTCONV) charmap_menu.txt $< $@
+
+$(BUILD_DIR)/include/text_options_strings.h: include/text_options_strings.h.in
+	$(TEXTCONV) charmap.txt $< $@
 
 ifeq ($(VERSION),eu)
 TEXT_DIRS := text/de text/us text/fr
@@ -671,6 +742,7 @@ ALL_DIRS := $(BUILD_DIR) $(addprefix $(BUILD_DIR)/,$(SRC_DIRS) $(ASM_DIRS) $(GOD
 DUMMY != mkdir -p $(ALL_DIRS)
 
 $(BUILD_DIR)/include/text_strings.h: $(BUILD_DIR)/include/text_menu_strings.h
+$(BUILD_DIR)/include/text_strings.h: $(BUILD_DIR)/include/text_options_strings.h
 
 ifeq ($(VERSION),eu)
 $(BUILD_DIR)/src/menu/file_select.o: $(BUILD_DIR)/include/text_strings.h $(BUILD_DIR)/bin/eu/translation_en.o $(BUILD_DIR)/bin/eu/translation_de.o $(BUILD_DIR)/bin/eu/translation_fr.o
@@ -690,13 +762,19 @@ endif
 ################################################################
 
 # RGBA32, RGBA16, IA16, IA8, IA4, IA1, I8, I4
+ifeq ($(EXTERNAL_TEXTURES),1)
+$(BUILD_DIR)/%: %.png
+	$(ZEROTERM) "$(patsubst %.png,%,$^)" > $@
+else
 $(BUILD_DIR)/%: %.png
 	$(N64GRAPHICS) -i $@ -g $< -f $(lastword $(subst ., ,$@))
+endif
 
 $(BUILD_DIR)/%.inc.c: $(BUILD_DIR)/% %.png
 	hexdump -v -e '1/1 "0x%X,"' $< > $@
 	echo >> $@
 
+ifeq ($(EXTERNAL_TEXTURES),0)
 # Color Index CI8
 $(BUILD_DIR)/%.ci8: %.ci8.png
 	$(N64GRAPHICS_CI) -i $@ -g $< -f ci8
@@ -704,6 +782,7 @@ $(BUILD_DIR)/%.ci8: %.ci8.png
 # Color Index CI4
 $(BUILD_DIR)/%.ci4: %.ci4.png
 	$(N64GRAPHICS_CI) -i $@ -g $< -f ci4
+endif
 
 ################################################################
 
@@ -864,7 +943,7 @@ ifeq ($(TARGET_SWITCH), 1)
 
 endif
 
-.PHONY: all clean distclean default diff test load libultra
+.PHONY: all clean distclean default diff test load libultra res
 .PRECIOUS: $(BUILD_DIR)/bin/%.elf $(SOUND_BIN_DIR)/%.ctl $(SOUND_BIN_DIR)/%.tbl $(SOUND_SAMPLE_TABLES) $(SOUND_BIN_DIR)/%.s $(BUILD_DIR)/%
 .DELETE_ON_ERROR:
 

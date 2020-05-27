@@ -1,5 +1,5 @@
 #include <ultra64.h>
-
+#include <stdio.h>
 #include "sm64.h"
 #include "game_init.h"
 #include "main.h"
@@ -11,15 +11,11 @@
 #include "level_table.h"
 #include "course_table.h"
 #include "thread6.h"
+#include "macros.h"
+#include "pc/ini.h"
 
 #define MENU_DATA_MAGIC 0x4849
 #define SAVE_FILE_MAGIC 0x4441
-
-#define BSWAP16(x) \
-    ( (((x) >> 8) & 0x00FF) | (((x) << 8) & 0xFF00) )
-#define BSWAP32(x)   \
-    ( (((x) >> 24) & 0x000000FF) | (((x) >>  8) & 0x0000FF00) | \
-      (((x) <<  8) & 0x00FF0000) | (((x) << 24) & 0xFF000000) )
 
 STATIC_ASSERT(sizeof(struct SaveBuffer) == EEPROM_SIZE, "eeprom buffer size must match");
 
@@ -49,6 +45,12 @@ s8 gLevelToCourseNumTable[] = {
 
 STATIC_ASSERT(ARRAY_COUNT(gLevelToCourseNumTable) == LEVEL_COUNT - 1,
               "change this array if you are adding levels");
+
+#ifdef TEXTSAVES
+
+#include "text_save.inc.h"
+
+#endif
 
 // This was probably used to set progress to 100% for debugging, but
 // it was removed from the release ROM.
@@ -178,7 +180,6 @@ static inline s32 write_eeprom_menudata(const u32 slot, const u32 num) {
 #endif
 }
 
-
 /**
  * Sum the bytes in data to data + size - 2. The last two bytes are ignored
  * because that is where the checksum is stored.
@@ -242,7 +243,7 @@ static void save_main_menu_data(void) {
         bcopy(&gSaveBuffer.menuData[0], &gSaveBuffer.menuData[1], sizeof(gSaveBuffer.menuData[1]));
 
         // Write to EEPROM
-         write_eeprom_menudata(0, 2);
+        write_eeprom_menudata(0, 2);
 
         gMainMenuDataModified = FALSE;
     }
@@ -350,7 +351,16 @@ static void save_file_bswap(struct SaveBuffer *buf) {
 }
 
 void save_file_do_save(s32 fileIndex) {
-    if (gSaveFileModified) {
+    if (gSaveFileModified)
+#ifdef TEXTSAVES
+    {
+        // Write to text file
+        write_text_save(fileIndex);
+        gSaveFileModified = FALSE;
+        gMainMenuDataModified = FALSE;
+    }
+#else 
+    {
         // Compute checksum
         add_save_block_signature(&gSaveBuffer.files[fileIndex][0],
                                  sizeof(gSaveBuffer.files[fileIndex][0]), SAVE_FILE_MAGIC);
@@ -361,11 +371,11 @@ void save_file_do_save(s32 fileIndex) {
 
         // Write to EEPROM
         write_eeprom_savefile(fileIndex, 0, 2);
-
+        
         gSaveFileModified = FALSE;
     }
-
     save_main_menu_data();
+#endif
 }
 
 void save_file_erase(s32 fileIndex) {
@@ -396,6 +406,14 @@ void save_file_load_all(void) {
     gSaveFileModified = FALSE;
 
     bzero(&gSaveBuffer, sizeof(gSaveBuffer));
+
+#ifdef TEXTSAVES
+    for (file = 0; file < NUM_SAVE_FILES; file++) {
+        read_text_save(file);
+    }
+    gSaveFileModified = TRUE;
+    gMainMenuDataModified = TRUE;
+#else
     read_eeprom_data(&gSaveBuffer, sizeof(gSaveBuffer));
 
     if (save_file_need_bswap(&gSaveBuffer))
@@ -432,7 +450,7 @@ void save_file_load_all(void) {
                 break;
         }
     }
-
+#endif // TEXTSAVES
     stub_save_file_1();
 }
 
