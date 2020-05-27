@@ -462,6 +462,7 @@ ifeq ($(TARGET_SWITCH),1)
   ifeq ($(strip $(DEVKITPRO)),)
     $(error "Please set DEVKITPRO in your environment. export DEVKITPRO=<path to>/devkitpro")
   endif
+  export PATH := $(DEVKITPRO)/devkitA64/bin:$(PATH)
   PORTLIBS ?= $(DEVKITPRO)/portlibs/switch
   LIBNX ?= $(DEVKITPRO)/libnx
   CROSS ?= aarch64-none-elf-
@@ -471,6 +472,7 @@ ifeq ($(TARGET_SWITCH),1)
   APP_VERSION := 1_master_$(VERSION)
   APP_ICON := nx_icon.jpg
   INCLUDE_CFLAGS += -isystem$(LIBNX)/include -I$(PORTLIBS)/include
+  OPT_FLAGS := -O2
 endif
 
 AS := $(CROSS)as
@@ -894,7 +896,7 @@ $(BUILD_DIR)/src/audio/synthesis.o: OPT_FLAGS := -O2 -sopt,-scalaroptimize=1 -Wp
 
 # Add a target for build/eu/src/audio/*.copt to make it easier to see debug
 $(BUILD_DIR)/src/audio/%.acpp: src/audio/%.c
-	$(QEMU_IRIX) -silent -L $(IRIX_ROOT) $(IRIX_ROOT)/usr/lib/acpp $(TARGET_CFLAGS) $(INCLUDE_CFLAGS) $(VERSION_CFLAGS) $(GRUCODE_CFLAGS) -D__sgi -+ $< > $@ 
+	$(QEMU_IRIX) -silent -L $(IRIX_ROOT) $(IRIX_ROOT)/usr/lib/acpp $(TARGET_CFLAGS) $(INCLUDE_CFLAGS) $(VERSION_CFLAGS) $(GRUCODE_CFLAGS) -D__sgi -+ $< > $@
 $(BUILD_DIR)/src/audio/%.copt: $(BUILD_DIR)/src/audio/%.acpp
 	$(QEMU_IRIX) -silent -L $(IRIX_ROOT) $(IRIX_ROOT)/usr/lib/copt -signed -I=$< -CMP=$@ -cp=i -scalaroptimize=1
 endif
