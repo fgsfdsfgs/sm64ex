@@ -94,7 +94,7 @@ bool sys_mkdir(const char *name) {
     #endif
 }
 
-#if USE_SDL
+#if USE_SDL && !defined(TARGET_SWITCH)
 
 // we can just ask SDL for most of this shit if we have it
 #include <SDL2/SDL.h>
@@ -214,7 +214,7 @@ const char *sys_exe_path(void) {
 #warning "You might want to implement these functions for your platform"
 
 const char *sys_data_path(void) {
-    return ".";
+    return "./res";
 }
 
 const char *sys_save_path(void) {
