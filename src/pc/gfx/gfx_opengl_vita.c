@@ -349,7 +349,6 @@ static void gfx_vitagl_init(void) {
     vglIndexPointerMapped(vgl_indices);
     dlog("vglIndexPointerMapped");
 
-    glDepthRange(-1, 1);
     glDepthFunc(GL_LEQUAL);
     // glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA); /./ this is set per shader
 }
