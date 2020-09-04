@@ -1,5 +1,7 @@
-#ifndef _SAVE_FILE_H_
-#define _SAVE_FILE_H_
+#ifndef SAVE_FILE_H
+#define SAVE_FILE_H
+
+#include <PR/ultratypes.h>
 
 #include "types.h"
 #include "area.h"
@@ -71,8 +73,6 @@ struct SaveBuffer
     // The main menu data has two copies. If one is bad, the other is used as a backup.
     struct MainMenuSaveData menuData[2];
 };
-
-struct WarpNode;
 
 extern u8 gLastCompletedCourseNum;
 extern u8 gLastCompletedStarNum;
@@ -146,18 +146,19 @@ u16 save_file_get_sound_mode(void);
 void save_file_move_cap_to_default_location(void);
 
 void disable_warp_checkpoint(void);
-void check_if_should_set_warp_checkpoint(struct WarpNode *a);
-s32 check_warp_checkpoint(struct WarpNode *a);
+void check_if_should_set_warp_checkpoint(struct WarpNode *warpNode);
+s32 check_warp_checkpoint(struct WarpNode *warpNode);
 
 #ifdef VERSION_EU
 enum EuLanguages {
     LANGUAGE_ENGLISH,
     LANGUAGE_FRENCH,
-    LANGUAGE_GERMAN
+    LANGUAGE_GERMAN,
+    LANGUAGE_MAX
 };
 
 void eu_set_language(u16 language);
 u16 eu_get_language(void);
 #endif
 
-#endif // _SAVE_FILE_H_
+#endif // SAVE_FILE_H
