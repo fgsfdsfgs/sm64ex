@@ -1890,10 +1890,10 @@ index 0467495..fa4eb33 100644
  
  using namespace Microsoft::WRL; // For ComPtr
 diff --git a/src/pc/gfx/gfx_sdl2.c b/src/pc/gfx/gfx_sdl2.c
-index 25c9f06..a6461ae 100644
+index 242d6e8..08e5cac 100644
 --- a/src/pc/gfx/gfx_sdl2.c
 +++ b/src/pc/gfx/gfx_sdl2.c
-@@ -53,7 +53,7 @@ static void (*kb_all_keys_up)(void) = NULL;
+@@ -59,7 +59,7 @@ static void (*kb_all_keys_up)(void) = NULL;
  // whether to use timer for frame control
  static bool use_timer = true;
  // time between consequtive game frames
@@ -1902,7 +1902,14 @@ index 25c9f06..a6461ae 100644
  
  const SDL_Scancode windows_scancode_table[] = {
    /*  0                        1                            2                         3                            4                     5                            6                            7  */
-@@ -142,7 +142,11 @@ static inline void gfx_sdl_set_vsync(const bool enabled) {
+@@ -146,13 +146,17 @@ int test_vsync(void) {
+ 
+ static inline void gfx_sdl_set_vsync(const bool enabled) {
+     #ifdef TARGET_SWITCH
+-    SDL_GL_SetSwapInterval(2);
++    SDL_GL_SetSwapInterval(1);
+     use_timer = false;
+     #else
      if (enabled) {
          // try to detect refresh rate
          SDL_GL_SetSwapInterval(1);
@@ -1916,7 +1923,7 @@ index 25c9f06..a6461ae 100644
              printf("determined swap interval: %d\n", vblanks);
              SDL_GL_SetSwapInterval(vblanks);
 diff --git a/src/pc/pc_main.c b/src/pc/pc_main.c
-index ed6ee74..63679ad 100644
+index 923e7ea..4fe6161 100644
 --- a/src/pc/pc_main.c
 +++ b/src/pc/pc_main.c
 @@ -83,6 +83,25 @@ void send_display_list(struct SPTask *spTask) {
